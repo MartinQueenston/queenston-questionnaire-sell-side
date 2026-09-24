@@ -1604,14 +1604,6 @@
         <td><input type="text" data-key="d3_top100_age"></td>
       </tr>
     </tbody>
-    <tfoot>
-      <tr class="pct-total-row">
-        <td><strong>Total</strong></td>
-        <td></td>
-        <td><span class="pct-total" id="d3_total_pct">0%</span></td>
-        <td></td>
-      </tr>
-    </tfoot>
   </table>
 </div>
 
@@ -2160,6 +2152,7 @@
         <label class="check-item" onclick="toggleCheck(this,'h2_all_ret', true)"><span class="check-box"></span><span data-translate="h2_all_ret">All staff retained — essential to deal</span></label>
         <label class="check-item" onclick="toggleCheck(this,'h2_most_ret', true)"><span class="check-box"></span><span data-translate="h2_most_ret">Most staff retained</span></label>
         <label class="check-item" onclick="toggleCheck(this,'h2_open', true)"><span class="check-box"></span><span data-translate="h2_open">Open to buyer's assessment</span></label>
+        <label class="check-item" onclick="toggleCheck(this,'h2_no_staff', true)"><span class="check-box"></span><span data-translate="h2_no_staff">No staff</span></label>
         <label class="check-item" onclick="toggleCheck(this,'h2_aware', true)"><span class="check-box"></span><span data-translate="h2_aware">Staff aware of potential sale</span></label>
         <label class="check-item" onclick="toggleCheck(this,'h2_conf', true)"><span class="check-box"></span><span data-translate="h2_conf">Staff not aware — confidentiality required</span></label>
       </div>
@@ -2537,6 +2530,21 @@ function localizeF1FtptOptions(lang) {
   });
 }
 
+const G3_TYPE_LABELS = {
+  'Placement': 'g3_type_investment',
+  'Assurance': 'g3_type_insurance',
+  'Les deux': 'g3_type_both'
+};
+
+function localizeG3TypeOptions(lang) {
+  document.querySelectorAll('select[data-key^="g3_r"][data-key$="_type"]').forEach(select => {
+    Array.from(select.options).forEach(option => {
+      const key = G3_TYPE_LABELS[option.value];
+      if (key) option.textContent = t(lang, key);
+    });
+  });
+}
+
 function renderFinancialTables(lang) {
   const e1 = document.getElementById('e1_table');
   if (e1) {
@@ -2784,7 +2792,7 @@ if (c2) {
       g3.innerHTML += `<tr>
         <td><input type="text" data-key="g3_r${i}_name" placeholder="Company / carrier name"></td>
         <td>${mkPercent('g3_r' + i + '_pct')}</td>
-        <td><select data-key="g3_r${i}_type"><option></option><option>Placement</option><option>Assurance</option><option>Les deux</option></select></td>
+        <td><select data-key="g3_r${i}_type"><option value=""></option><option value="Placement">Placement</option><option value="Assurance">Assurance</option><option value="Les deux">Les deux</option></select></td>
         <td><div class="ts-date-cell"><input type="checkbox" class="ts-checkbox" id="tscb_g3_${i}" onchange="tsCheck(this,'tsdate_g3_${i}')"><input type="text" id="tsdate_g3_${i}" data-key="g3_r${i}_date" class="ts-date-input" readonly placeholder="\u2014 Auto-stamp on check"></div></td>
       </tr>`;
     }
@@ -3123,7 +3131,7 @@ const PCT_COLS = {
   c2_pct: { totalId: 'c2_total_pct' },
   d2_hh:  { totalId: 'd2_total_hh' },
   d2_aum: { totalId: 'd2_total_aum' },
-  d3_pct: { totalId: 'd3_total_pct' },
+  d3_pct: { totalId: null, allowOver100: true },
   d5_hh:  { totalId: 'd5_total_hh' },
   d5_aum: { totalId: 'd5_total_aum' },
   d6_pct: { totalId: 'd6_total_pct' },
@@ -3203,7 +3211,7 @@ function validatePercentageColumn(el) {
   }
 
   // Reject if the column total would exceed 100
-  if (calculateColumnTotal(col) > 100.0001) {
+  if (!PCT_COLS[col].allowOver100 && calculateColumnTotal(col) > 100.0001) {
     el.value = el.dataset.pctLastValid || '';
     updatePctTotals();
     showToast(pctOverMessage());
@@ -3411,6 +3419,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   tagPrefixInputs();
   localizeYesNoControls(currentLanguage);
   localizeF1FtptOptions(currentLanguage);
+  localizeG3TypeOptions(currentLanguage);
 
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
@@ -4238,6 +4247,9 @@ g2_desc_label: "Describe any material compliance issues, regulatory reviews, or 
 
 g3_title: "G.3 Carrier & Platform Relationships",
 g3_sub: "List your top 5 investment companies and top 5 insurance carriers by revenue.",
+g3_type_investment: "Investment",
+g3_type_insurance: "Insurance",
+g3_type_both: "Both",
 g3_col_name: "Company / Carrier Name",
 g3_col_pct: "% of Revenue",
 g3_col_type: "Type (Investment / Insurance / Both)",
@@ -4278,6 +4290,7 @@ h2_label: "What is your expectation for your staff post-transaction?",
 h2_all_ret: "All staff retained — essential to deal",
 h2_most_ret: "Most staff retained",
 h2_open: "Open to buyer's assessment",
+h2_no_staff: "No staff",
 h2_aware: "Staff aware of potential sale",
 h2_conf: "Staff not aware — confidentiality required",
 h2_critical_label: "Are there any staff members who are critical to retain for a successful transition? Describe (no names).",
@@ -5132,6 +5145,9 @@ g3_col_name: "Nom de la compagnie / assureur",
 g3_col_pct: "% des revenus",
 g3_col_type: "Type (Placement / Assurance / Les deux)",
 g3_col_date: "Date d'ajout",
+g3_type_investment: "Placement",
+g3_type_insurance: "Assurance",
+g3_type_both: "Les deux",
 i1_doc_1: "Lettre de mandat / NDA signée avec Queenston",
 i1_doc_2: "Déclarations de revenus des sociétés T2 des 5 dernières années (ou T2125)",
 i1_doc_3: "États financiers des 5 dernières années (bilan et état des résultats)",
@@ -5168,6 +5184,7 @@ h2_label: "Quelles sont vos attentes concernant votre personnel après la transa
 h2_all_ret: "Tous les employés conservés — essentiel à la transaction",
 h2_most_ret: "La majorité des employés conservés",
 h2_open: "Ouvert à l’évaluation de l’acquéreur",
+h2_no_staff: "Aucun personnel",
 h2_aware: "Le personnel est au courant de la vente potentielle",
 h2_conf: "Le personnel n’est pas informé — confidentialité requise",
 h2_critical_label: "Y a-t-il des employés clés à conserver pour assurer une transition réussie? Décrire (sans noms).",
@@ -5273,6 +5290,7 @@ function setLanguage(lang) {
 
   localizeYesNoControls(lang);
   localizeF1FtptOptions(lang);
+  localizeG3TypeOptions(lang);
   localizeSeededTableInputs(lang);
   relocalizeTimestampInputs(lang);
   const status = document.getElementById('saveStatus');
