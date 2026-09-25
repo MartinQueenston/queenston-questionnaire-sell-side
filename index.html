@@ -2347,49 +2347,35 @@ const supabaseClient = createClient(
 
 // ?? DATA STORE ????????????????????????????????????????????????????
 const STORAGE_KEY = 'queenston_sell_side_v1';
+// Security fix (Sep 2026): the page only reads and saves through three
+// database functions that act on the row matching the private link token.
+let currentToken = new URLSearchParams(window.location.search).get("token");
+
 async function saveToSupabase() {
-  const fileNo = document.getElementById("header_fileno").value;
-  if (!fileNo) return;
-
-  const { error } = await supabaseClient
-    .from("queenston_questionnaire")
-    .upsert(
-      {
-        client_id: fileNo,
-        form_data: formData
-      },
-      { onConflict: "client_id" }
-    );
-
-  if (error) console.error("Supabase save error:", error);
-}
-async function loadFromSupabase(fileNo) {
-
-  const { data, error } = await supabaseClient
-    .from("queenston_questionnaire")
-    .select("*")
-    .eq("client_id", fileNo)
-    .single();
-
-  if (error) {
-    console.log("No existing client found");
-    return;
+  // Blank form: create the questionnaire once, then keep saving by its token.
+  if (!currentToken) {
+    const fileNo = document.getElementById("header_fileno")?.value?.trim();
+    if (!fileNo) return;
+    const { data: newToken, error: startError } = await supabaseClient.rpc("start_questionnaire", { p_client_id: fileNo });
+    if (startError || !newToken) {
+      console.error("Could not start questionnaire (this File No. may already exist):", startError);
+      return;
+    }
+    currentToken = newToken;
+    history.replaceState(null, "", "?token=" + encodeURIComponent(newToken));
+    document.getElementById("header_fileno")?.setAttribute("readonly", "readonly");
   }
 
-  if (!data) return;
-
-  formData = data.form_data || {};
-
-  applyFormDataToDOM();
-  setSaveStatus('restored');
-
+  const { error } = await supabaseClient.rpc("save_questionnaire", {
+    p_token: currentToken,
+    p_form_data: formData,
+  });
+  if (error) console.error("Supabase save error:", error);
 }
 async function loadFromSupabaseToken(token) {
 
     const { data, error } = await supabaseClient
-        .from("queenston_questionnaire")
-        .select("*")
-        .eq("token", token)
+        .rpc("get_questionnaire", { p_token: token })
         .single();
 
     if (error) {
@@ -2401,6 +2387,7 @@ async function loadFromSupabaseToken(token) {
 
     const fileInput = document.getElementById("header_fileno");
     fileInput.value = data.client_id;
+    fileInput.setAttribute("readonly", "readonly");
 
     formData = data.form_data || {};
 
@@ -3443,22 +3430,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initCalculatedTotals();
   updateProgress();
 
-  const fileInput = document.getElementById("header_fileno");
-  if (fileInput) {
-    fileInput.addEventListener("change", async (e) => {
-      const fileNo = e.target.value;
-      if (fileNo) {
-        suppressAutosave = true;
-        await loadFromSupabase(fileNo);
-        tagPrefixInputs();
-        initCurrencyInputs();
-        initPctValidation();
-        initCalculatedTotals();
-        updateProgress();
-        setTimeout(() => { suppressAutosave = false; }, 500);
-      }
-    });
-  }
+  // The File No. box no longer loads answers by name (security fix, Sep 2026).
 
   // Re-enable autosave only after the initial build + restore is done,
   // so loading the document restores data instead of overwriting it.
